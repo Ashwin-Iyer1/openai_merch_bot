@@ -1,0 +1,21 @@
+'use strict';
+const report=JSON.parse(document.getElementById('data').textContent);
+const $=id=>document.getElementById(id);
+const stateLabel=value=>value===true?'Available':value===false?'Unavailable':'Unknown';
+const formatPrice=value=>value?`${value.currency} ${Number(value.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:6})}`:'Price not provided';
+$('provenance').textContent=`${report.fictional?'FICTIONAL DEMONSTRATION · ':''}${report.current.source} · Captured ${report.current.capturedAt}`;
+$('snapshot').querySelector('[value=previous]').disabled=!report.previous;
+$('restocked').textContent=report.previous?report.changes.filter(x=>x.kind==='restocked').length:'—';
+$('comparison').textContent=report.previous?`${report.previous.capturedAt.slice(0,10)} → ${report.current.capturedAt.slice(0,10)}`:'No previous snapshot. The first observation establishes a baseline.';
+const kindLabels={'restocked':'Became available','availability-changed':'Availability changed','first-seen':'First observed','not-observed':'Not observed','price-changed':'Price changed'};
+for(const change of report.changes){const row=document.createElement('li');const label=document.createElement('small');label.textContent=kindLabels[change.kind];const title=document.createElement('strong');title.textContent=change.title;const detail=document.createElement('span');detail.textContent=change.kind==='price-changed'?`${formatPrice(change.before)} → ${formatPrice(change.after)}`:change.kind==='first-seen'?stateLabel(change.after):change.kind==='not-observed'?'Missing from current capture':`${stateLabel(change.before)} → ${stateLabel(change.after)}`;row.append(label,title,detail);$('changes').append(row);}
+if(!report.changes.length){const row=document.createElement('li');row.textContent=report.previous?'No observed changes.':'Baseline only; no change claims.';$('changes').append(row);}
+function render(){const snapshot=report[$('snapshot').value];const all=snapshot.products;const q=$('search').value.trim().toLowerCase();const filter=$('filter').value;
+  const products=all.filter(p=>p.title.toLowerCase().includes(q)&&(filter==='all'||(filter==='available'?p.available===true:filter==='unavailable'?p.available===false:p.available===null)));
+  products.sort($('sort').value==='price'?(a,b)=>(a.price?.currency||'ZZZZ').localeCompare(b.price?.currency||'ZZZZ')||(a.price&&b.price?Number(a.price.amount)-Number(b.price.amount):0)||a.title.localeCompare(b.title):(a,b)=>a.title.localeCompare(b.title));
+  $('products').textContent=all.length;$('available').textContent=all.filter(p=>p.available===true).length;$('unknown').textContent=all.filter(p=>p.available===null).length;$('count').textContent=`${products.length} of ${all.length} products · ${snapshot.capturedAt}`;$('cards').replaceChildren();$('empty').hidden=products.length>0;
+  for(const p of products){const card=document.createElement('article');const mark=document.createElement('span');mark.className='mark';mark.textContent=p.title.split(' ').map(w=>w[0]).slice(0,2).join('');const info=document.createElement('div');const title=document.createElement('h3');title.textContent=p.title;const handle=document.createElement('small');handle.textContent=p.handle;const price=document.createElement('p');price.textContent=formatPrice(p.price);info.append(title,handle,price);const evidence=document.createElement('div');const badge=document.createElement('span');badge.className='badge '+(p.available===true?'yes':p.available===false?'no':'unknown');badge.textContent=stateLabel(p.available);const why=document.createElement('small');why.textContent=p.evidence;const variants=document.createElement('small');variants.textContent=p.variantsKnown?`${p.variantsAvailable}/${p.variantsKnown} supplied variants available`:'No variant detail supplied';evidence.append(badge,why,variants);card.append(mark,info,evidence);$('cards').append(card);}
+}
+for(const id of ['snapshot','search','filter','sort'])$(id).addEventListener('input',render);
+$('download').onclick=()=>{const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='catalog-evidence.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+render();

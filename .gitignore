@@ -1,5 +1,10 @@
 .env
+*.local.html
+*.local.json
 buyable_items.html
 buyable_products_data.json
 openai_supply.html
-__pycache__
+__pycache__/
+node_modules/
+test-results/
+playwright-report/
